@@ -197,19 +197,33 @@ def process_lidar(lidar_msg, min_dist, max_dist, ransac_threshold):
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pts)
 
-    plane_model, inliers = pcd.segment_plane(
-        distance_threshold=ransac_threshold,
-        ransac_n=3,
-        num_iterations=1000
-    )
+    # Try multiple planes, skip horizontal ones (floor/ceiling)
+    remaining = pcd
+    for attempt in range(5):
+        plane_model, inliers = remaining.segment_plane(
+            distance_threshold=ransac_threshold,
+            ransac_n=3,
+            num_iterations=1000
+        )
 
-    if len(inliers) < 10:
-        return None
+        a, b, c, d = plane_model
+        normal = np.array([a, b, c])
 
-    board_pts = np.asarray(pcd.select_by_index(inliers).points)
-    centroid_lidar = board_pts.mean(axis=0)
-    return centroid_lidar
+        # Skip if plane is horizontal (floor/ceiling) — Z component too large
+        if abs(normal[2]) > 0.5:
+            # Remove these inliers and try again
+            remaining = remaining.select_by_index(inliers, invert=True)
+            print(f"  Skipping horizontal plane (normal Z={normal[2]:.2f}), retrying...")
+            continue
 
+        if len(inliers) < 10:
+            return None
+
+        board_pts = np.asarray(remaining.select_by_index(inliers).points)
+        return board_pts.mean(axis=0)
+
+    return None
+  
 
 # ─────────────────────────────────────────────
 # 7. SOLVE R AND T (SVD)
