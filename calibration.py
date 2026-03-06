@@ -32,9 +32,9 @@ def parse_args():
     parser.add_argument('--image-topic',       default='/oak/rgb/image_raw')
     parser.add_argument('--lidar-topic',       default='/livox/lidar')
     parser.add_argument('--camera-info-topic', default='/oak/rgb/camera_info')
-    parser.add_argument('--checkerboard',      nargs=2, type=int, default=[8, 6],
+    parser.add_argument('--checkerboard',      nargs=2, type=int, default=[11, 8],
                         help='Inner corners (cols rows), e.g. 8 6')
-    parser.add_argument('--square-size',       type=float, default=0.025,
+    parser.add_argument('--square-size',       type=float, default=0.03,
                         help='Square size in meters')
     parser.add_argument('--output',            default='./result',
                         help='Output directory for results')
