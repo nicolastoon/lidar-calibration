@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument('--image-topic',       default='/oak/rgb/image_raw')
     parser.add_argument('--lidar-topic',       default='/livox/lidar')
     parser.add_argument('--camera-info-topic', default='/oak/rgb/camera_info')
-    parser.add_argument('--checkerboard',      nargs=2, type=int, default=[11, 8],
+    parser.add_argument('--checkerboard',      nargs=2, type=int, default=[12, 6],
                         help='Inner corners (cols rows), e.g. 8 6')
     parser.add_argument('--square-size',       type=float, default=0.03,
                         help='Square size in meters')
@@ -180,46 +180,43 @@ def pointcloud2_to_numpy(msg):
 
 
 def process_lidar(lidar_msg, min_dist, max_dist, ransac_threshold):
-    """Segment checkerboard plane and return centroid in LiDAR frame."""
     pts = pointcloud2_to_numpy(lidar_msg)
-
     if len(pts) == 0:
         return None
 
-    # Distance filter - keep points in a reasonable range
-    dists = np.linalg.norm(pts, axis=1)
-    pts = pts[(dists > min_dist) & (dists < max_dist)]
+    # Filter to forward-facing cone (cable at back = positive X is forward)
+    azimuth = np.degrees(np.arctan2(pts[:, 1], pts[:, 0]))
+    pts = pts[
+        (azimuth > -45) & (azimuth < 45) &   # 90 degree cone forward
+        (pts[:, 0] > 0.3) & (pts[:, 0] < 3.0) &  # 0.3m to 3m forward
+        (pts[:, 2] > -0.5) & (pts[:, 2] < 2.0)   # reasonable height
+    ]
 
     if len(pts) < 10:
         return None
 
-    # RANSAC plane fitting with open3d
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pts)
 
-    # Try multiple planes, skip horizontal ones (floor/ceiling)
-    remaining = pcd
     for attempt in range(5):
-        plane_model, inliers = remaining.segment_plane(
+        if len(np.asarray(pcd.points)) < 10:
+            return None
+        plane_model, inliers = pcd.segment_plane(
             distance_threshold=ransac_threshold,
             ransac_n=3,
             num_iterations=1000
         )
-
         a, b, c, d = plane_model
-        normal = np.array([a, b, c])
 
-        # Skip if plane is horizontal (floor/ceiling) — Z component too large
-        if abs(normal[2]) > 0.5:
-            # Remove these inliers and try again
-            remaining = remaining.select_by_index(inliers, invert=True)
-            print(f"  Skipping horizontal plane (normal Z={normal[2]:.2f}), retrying...")
+        # Skip horizontal planes (floor/ceiling)
+        if abs(c) > 0.5:
+            pcd = pcd.select_by_index(inliers, invert=True)
             continue
 
         if len(inliers) < 10:
             return None
 
-        board_pts = np.asarray(remaining.select_by_index(inliers).points)
+        board_pts = np.asarray(pcd.select_by_index(inliers).points)
         return board_pts.mean(axis=0)
 
     return None

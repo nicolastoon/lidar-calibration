@@ -1,0 +1,20 @@
+=== LiDAR-Camera Extrinsic Calibration Result ===
+
+Transform: p_camera = R @ p_lidar + t
+
+R (rotation matrix):
+[[-0.68901151  0.70824731  0.15378197]
+ [ 0.38003349  0.1723912   0.9087661 ]
+ [ 0.61712048  0.6845926  -0.38793721]]
+
+t (translation vector):
+[ 1.87923801 -1.83410202  0.5261926 ]
+
+T (4x4 homogeneous transform):
+[[-0.68901151  0.70824731  0.15378197  1.87923801]
+ [ 0.38003349  0.1723912   0.9087661  -1.83410202]
+ [ 0.61712048  0.6845926  -0.38793721  0.5261926 ]
+ [ 0.          0.          0.          1.        ]]
+
+Reprojection error: 0.5097 ± 0.2097 meters
+Num poses used: 183
